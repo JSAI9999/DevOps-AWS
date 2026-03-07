@@ -1,6 +1,6 @@
 FROM nginx:latest
 
-COPY src/html /usr/share/nginx/html
+COPY src/index.html /usr/share/nginx/html
 
 EXPOSE 4000
 
