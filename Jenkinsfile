@@ -17,7 +17,7 @@ pipeline {
 
         stage('Run Docker Container') {
             steps {
-                sh 'docker run -d -p 80:80 --name html-container devops-html-app'
+                sh 'docker run -d -p 4000:80 --name html-container devops-html-app'
             }
         }
 
