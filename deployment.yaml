@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: devops-html-deployment
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: devops-html
+  template:
+    metadata:
+      labels:
+        app: devops-html
+    spec:
+      containers:
+      - name: devops-html-container
+        image: akramsyed8046/devops-html-app
+        ports:
+        - containerPort: 80
