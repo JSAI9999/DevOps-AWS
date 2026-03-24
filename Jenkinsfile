@@ -29,9 +29,10 @@ pipeline {
             steps {
                 withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
                     sh '''
-                    export KUBECONFIG=$KUBECONFIG
+                    kubectl get nodes
                     kubectl apply -f deployment.yaml
                     kubectl apply -f service.yaml
+                    kubectl apply -f ingress.yaml
                     '''
                 }
             }
@@ -53,16 +54,16 @@ pipeline {
             steps {
                 withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
                     sh '''
-                    export KUBECONFIG=$KUBECONFIG
-                    kubectl get pods
+                    kubectl get pods -o wide
                     kubectl get svc
+                    kubectl get ingress
                     '''
                 }
             }
             post {
                 success {
                     emailext subject: "✅ Verification SUCCESS",
-                    body: "Pods and services are running successfully.",
+                    body: "Pods, services, and ingress are running successfully.",
                     to: "${EMAIL}"
                 }
                 failure {
