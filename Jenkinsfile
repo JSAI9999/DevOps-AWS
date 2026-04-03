@@ -2,18 +2,16 @@ pipeline {
     agent any
 
     tools {
-        nodejs 'Node18'           // Jenkins NodeJS tool
-        jdk 'JDK25'               // Only if needed for SonarQube
+        nodejs 'Node18'
+        jdk 'JDK25'
     }
 
     environment {
         DOCKER_IMAGE = "akramsyed8046/devops-html-app:latest"
         DOCKER_CREDENTIALS = "docker-hub"
         SONARQUBE_ENV = "sonarqube"
-        NEXUS_TOKEN = credentials('nexus-token')
         NEXUS_REPO = "http://43.205.195.167:8081/repository/raw-repo/"
         PATH = "${tool 'Node18'}/bin:${env.PATH}"
-        KUBECONFIG = "/home/jenkins/.kube/config"  // Path to your kubeconfig
     }
 
     stages {
@@ -35,7 +33,6 @@ pipeline {
                 '''
             }
         }
-	
 
         stage('Build Project') {
             steps {
@@ -67,11 +64,12 @@ pipeline {
             }
         }
 
-        stage('Publish to Nexus (Raw)') {
+        stage('Publish to Nexus (NPM)') {
             steps {
                 withCredentials([string(credentialsId: 'nexus-token', variable: 'NEXUS_TOKEN')]) {
                     sh '''
                     VERSION=$(node -p "require('./package.json').version")
+
                     if [[ "$VERSION" == *"-SNAPSHOT"* ]]; then
                         REPO=http://43.205.195.167:8081/repository/npm-snapshots/
                     else
@@ -80,7 +78,8 @@ pipeline {
 
                     echo "registry=$REPO" > .npmrc
                     echo "//$REPO:_authToken=$NEXUS_TOKEN" >> .npmrc
-                    npm publish || echo "Publish failed, check package.json version"
+
+                    npm publish || echo "Publish failed (check version or duplicate)"
                     '''
                 }
             }
@@ -100,24 +99,28 @@ pipeline {
             }
         }
 
-
         stage('Deploy to Kubernetes') {
-    steps {
-        withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')]) {
-            sh '''
-            export KUBECONFIG=$KUBECONFIG_FILE
+            steps {
+                withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')]) {
+                    sh '''
+                    export KUBECONFIG=$KUBECONFIG_FILE
 
-            kubectl get nodes
+                    echo "Connected Cluster:"
+                    kubectl config current-context
 
-            kubectl apply -f deployment.yaml
-            kubectl apply -f service.yaml
+                    echo "Cluster Nodes:"
+                    kubectl get nodes
 
-            kubectl rollout status deployment/devops-html-deployment
-            '''
+                    echo "Deploying application..."
+                    kubectl apply -f deployment.yaml
+                    kubectl apply -f service.yaml
+
+                    echo "Checking rollout status..."
+                    kubectl rollout status deployment/devops-html-deployment
+                    '''
+                }
+            }
         }
-    }
-
-
     }
 
     post {
