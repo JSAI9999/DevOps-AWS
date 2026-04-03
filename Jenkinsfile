@@ -11,8 +11,9 @@ pipeline {
         DOCKER_CREDENTIALS = "docker-hub"
         SONARQUBE_ENV = "sonarqube"
         NEXUS_TOKEN = credentials('nexus-token')
-        NEXUS_REPO = "http://3.110.170.36:8081/repository/raw-repo/"
+        NEXUS_REPO = "http://43.205.195.167:8081/repository/raw-repo/"
         PATH = "${tool 'Node18'}/bin:${env.PATH}"
+        KUBECONFIG = "/home/jenkins/.kube/config"  // Path to your kubeconfig
     }
 
     stages {
@@ -34,6 +35,7 @@ pipeline {
                 '''
             }
         }
+	
 
         stage('Build Project') {
             steps {
@@ -67,13 +69,19 @@ pipeline {
 
         stage('Publish to Nexus (Raw)') {
             steps {
-                script {
-                    // Upload build folder contents to Nexus raw repo
-                    sh """
-                    for file in dist/*; do
-                        curl -u admin:${NEXUS_TOKEN} --upload-file \$file ${NEXUS_REPO}\$(basename \$file)
-                    done
-                    """
+                withCredentials([string(credentialsId: 'nexus-token', variable: 'NEXUS_TOKEN')]) {
+                    sh '''
+                    VERSION=$(node -p "require('./package.json').version")
+                    if [[ "$VERSION" == *"-SNAPSHOT"* ]]; then
+                        REPO=http://43.205.195.167:8081/repository/npm-snapshots/
+                    else
+                        REPO=http://43.205.195.167:8081/repository/npm-releases/
+                    fi
+
+                    echo "registry=$REPO" > .npmrc
+                    echo "//$REPO:_authToken=$NEXUS_TOKEN" >> .npmrc
+                    npm publish || echo "Publish failed, check package.json version"
+                    '''
                 }
             }
         }
@@ -92,14 +100,22 @@ pipeline {
             }
         }
 
-        stage('Deploy Container') {
+        stage('Deploy to Kubernetes') {
             steps {
+                echo "Deploying to Kubernetes cluster..."
                 sh '''
-                docker rm -f devops-html-app || true
-                docker run -d --name devops-html-app -p 8087:80 ${DOCKER_IMAGE}
+                # Apply Deployment manifest (make sure k8s/deployment.yaml exists)
+                kubectl apply -f deployment.yaml
+
+                # Apply Service manifest (optional)
+                kubectl apply -f service.yaml
+
+                # Rollout status to ensure deployment succeeded
+                kubectl rollout status deployment/devops-html-app
                 '''
             }
         }
+
     }
 
     post {
