@@ -100,31 +100,23 @@ pipeline {
             }
         }
 
-		stage('Update kubeconfig') {
-    steps {
-        sh '''
-        /usr/local/bin/aws eks update-kubeconfig \
-        --region ap-south-1 \
-        --name rehcluster
-        '''
-		  }
-}
 
         stage('Deploy to Kubernetes') {
-            steps {
-                echo "Deploying to Kubernetes cluster..."
-                sh '''
-                # Apply Deployment manifest (make sure k8s/deployment.yaml exists)
-                kubectl apply -f deployment.yaml
+    steps {
+        withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')]) {
+            sh '''
+            export KUBECONFIG=$KUBECONFIG_FILE
 
-                # Apply Service manifest (optional)
-                kubectl apply -f service.yaml
+            kubectl get nodes
 
-                # Rollout status to ensure deployment succeeded
-                kubectl rollout status deployment/devops-html-app
-                '''
-            }
+            kubectl apply -f deployment.yaml
+            kubectl apply -f service.yaml
+
+            kubectl rollout status deployment/devops-html-deployment
+            '''
         }
+    }
+
 
     }
 
