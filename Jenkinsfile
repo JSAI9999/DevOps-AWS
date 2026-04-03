@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     tools {
-        maven 'maven3'       // Required for SonarQube
+        maven 'maven3'       // Required for Maven deploy & SonarQube
         jdk 'JDK25'          // Jenkins JDK
         nodejs 'Node18'      // Jenkins NodeJS tool
     }
@@ -12,7 +12,7 @@ pipeline {
         DOCKER_CREDENTIALS = "docker-hub"       
         SONARQUBE_ENV = "sonarqube"             
         NEXUS_TOKEN = credentials('nexus-token') 
-        NEXUS_URL = "http://3.110.170.36:8081/repository/npm-releases/"
+        NEXUS_REPO = "http://3.110.170.36:8081/repository/maven-releases/"
         PATH = "${tool 'Node18'}/bin:${env.PATH}" 
     }
 
@@ -27,8 +27,6 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 sh '''
-                echo "registry=${NEXUS_URL}" > .npmrc
-                echo "//3.110.170.36:8081/repository/npm-releases/:_authToken=$NEXUS_TOKEN" >> .npmrc
                 npm install || echo "No package.json found, skipping install"
                 '''
             }
@@ -41,12 +39,11 @@ pipeline {
         }
 
         stage('SonarQube Analysis') {
-    steps {
-        withSonarQubeEnv("${SONARQUBE_ENV}") {  // This is your SonarQube server name in Jenkins
-            // Use the Jenkins-managed scanner
-            sh "${tool 'SonarQube-Scanner'}/bin/sonar-scanner \
-               -Dsonar.projectKey=devops-html-app \
-               -Dsonar.sources=src"
+            steps {
+                withSonarQubeEnv("${SONARQUBE_ENV}") {
+                    sh "${tool 'SonarQube-Scanner'}/bin/sonar-scanner \
+                       -Dsonar.projectKey=devops-html-app \
+                       -Dsonar.sources=src"
                 }
             }
         }
@@ -72,16 +69,24 @@ pipeline {
             }
         }
 
-       stage('Publish to Nexus') {
-    steps {
-        withCredentials([string(credentialsId: 'nexus-token', variable: 'NEXUS_TOKEN')]) {
-            sh '''
-            VERSION=$(node -p "require('./package.json').version")
-            ARTIFACT="devops-html-app-${VERSION}.zip"
-            REPO="http://3.110.170.36:8081/repository/raw-repo/"
+        stage('Publish to Nexus') {
+            steps {
+                script {
+                    // Read version from package.json
+                    def version = sh(script: "node -p \"require('./package.json').version\"", returnStdout: true).trim()
 
-            curl -v -u $NEXUS_TOKEN: --upload-file artifact/devops-html-app.zip $REPO$ARTIFACT
-            '''
+                    // Deploy using Maven
+                    sh """
+                    mvn deploy:deploy-file \
+                      -Dfile=artifact/devops-html-app.zip \
+                      -DgroupId=com.akram \
+                      -DartifactId=devops-html-app \
+                      -Dversion=${version} \
+                      -Dpackaging=zip \
+                      -DrepositoryId=nexus-releases \
+                      -Durl=${NEXUS_REPO} \
+                      -DgeneratePom=true
+                    """
                 }
             }
         }
