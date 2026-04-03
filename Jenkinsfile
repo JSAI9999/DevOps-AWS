@@ -2,18 +2,17 @@ pipeline {
     agent any
 
     tools {
-        maven 'maven3'       // Required for Maven deploy & SonarQube
-        jdk 'JDK25'          // Jenkins JDK
-        nodejs 'Node18'      // Jenkins NodeJS tool
+        nodejs 'Node18'           // Jenkins NodeJS tool
+        jdk 'JDK25'               // Only if needed for SonarQube
     }
 
     environment {
         DOCKER_IMAGE = "akramsyed8046/devops-html-app:latest"
-        DOCKER_CREDENTIALS = "docker-hub"       
-        SONARQUBE_ENV = "sonarqube"             
-        NEXUS_TOKEN = credentials('nexus-token') 
-        NEXUS_REPO = "http://3.110.170.36:8081/repository/maven-releases/"
-        PATH = "${tool 'Node18'}/bin:${env.PATH}" 
+        DOCKER_CREDENTIALS = "docker-hub"
+        SONARQUBE_ENV = "sonarqube"
+        NEXUS_TOKEN = credentials('nexus-token')
+        NEXUS_REPO = "http://3.110.170.36:8081/repository/raw-repo/"
+        PATH = "${tool 'Node18'}/bin:${env.PATH}"
     }
 
     stages {
@@ -27,14 +26,24 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 sh '''
-                npm install || echo "No package.json found, skipping install"
+                if [ -f package.json ]; then
+                    npm install
+                else
+                    echo "No package.json found, skipping install"
+                fi
                 '''
             }
         }
 
         stage('Build Project') {
             steps {
-                sh 'npm run build || echo "No build script found, skipping"'
+                sh '''
+                if npm run | grep -q "build"; then
+                    npm run build
+                else
+                    echo "No build script found, skipping"
+                fi
+                '''
             }
         }
 
@@ -56,36 +65,14 @@ pipeline {
             }
         }
 
-        stage('Prepare Artifact') {
-            steps {
-                sh 'mkdir -p artifact'
-                sh 'zip -r artifact/devops-html-app.zip src/'
-            }
-        }
-
-        stage('Archive Artifact') {
-            steps {
-                archiveArtifacts artifacts: 'artifact/devops-html-app.zip', fingerprint: true
-            }
-        }
-
-        stage('Publish to Nexus') {
+        stage('Publish to Nexus (Raw)') {
             steps {
                 script {
-                    // Read version from package.json
-                    def version = sh(script: "node -p \"require('./package.json').version\"", returnStdout: true).trim()
-
-                    // Deploy using Maven
+                    // Upload build folder contents to Nexus raw repo
                     sh """
-                    mvn deploy:deploy-file \
-                      -Dfile=artifact/devops-html-app.zip \
-                      -DgroupId=com.akram \
-                      -DartifactId=devops-html-app \
-                      -Dversion=${version} \
-                      -Dpackaging=zip \
-                      -DrepositoryId=nexus-releases \
-                      -Durl=${NEXUS_REPO} \
-                      -DgeneratePom=true
+                    for file in dist/*; do
+                        curl -u admin:${NEXUS_TOKEN} --upload-file \$file ${NEXUS_REPO}\$(basename \$file)
+                    done
                     """
                 }
             }
