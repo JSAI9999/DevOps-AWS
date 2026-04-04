@@ -1,27 +1,22 @@
 pipeline {
     agent any
-
     tools {
         nodejs 'Node18'
         jdk 'JDK25'
     }
-
     environment {
         DOCKER_IMAGE = "akramsyed8046/devops-html-app:latest"
         DOCKER_CREDENTIALS = "docker-hub"
         SONARQUBE_ENV = "sonarqube"
-        NEXUS_REPO = "http://43.205.195.167:8081/repository/raw-repo/"
+        NEXUS_REPO = "http://35.154.185.85:8081/repository/raw-repo/"
         PATH = "${tool 'Node18'}/bin:${env.PATH}"
     }
-
     stages {
-
         stage('Checkout') {
             steps {
                 git branch: 'main', url: 'https://github.com/akramsyed8046/Devops-html-app.git'
             }
         }
-
         stage('Install Dependencies') {
             steps {
                 sh '''
@@ -33,7 +28,6 @@ pipeline {
                 '''
             }
         }
-
         stage('Build Project') {
             steps {
                 sh '''
@@ -45,7 +39,6 @@ pipeline {
                 '''
             }
         }
-
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv("${SONARQUBE_ENV}") {
@@ -55,7 +48,6 @@ pipeline {
                 }
             }
         }
-
         stage('Quality Gate') {
             steps {
                 timeout(time: 10, unit: 'MINUTES') {
@@ -63,34 +55,33 @@ pipeline {
                 }
             }
         }
-
-        stage('Publish to Nexus (NPM)') {
+        stage('Publish to Nexus (Raw)') {
             steps {
-                withCredentials([string(credentialsId: 'nexus-token', variable: 'NEXUS_TOKEN')]) {
+                withCredentials([usernamePassword(
+                    credentialsId: 'nexus-credentials',
+                    usernameVariable: 'NEXUS_USER',
+                    passwordVariable: 'NEXUS_PASS'
+                )]) {
                     sh '''
                     VERSION=$(node -p "require('./package.json').version")
+                    ARTIFACT="devops-html-app-${VERSION}.zip"
 
-                    if [[ "$VERSION" == *"-SNAPSHOT"* ]]; then
-                        REPO=http://43.205.195.167:8081/repository/npm-snapshots/
-                    else
-                        REPO=http://43.205.195.167:8081/repository/npm-releases/
-                    fi
+                    mv devops-html-app.zip $ARTIFACT
 
-                    echo "registry=$REPO" > .npmrc
-                    echo "//$REPO:_authToken=$NEXUS_TOKEN" >> .npmrc
+                    curl -u "$NEXUS_USER:$NEXUS_PASS" \
+                         --upload-file "$ARTIFACT" \
+                         "${NEXUS_REPO}${ARTIFACT}"
 
-                    npm publish || echo "Publish failed (check version or duplicate)"
+                    echo "Artifact $ARTIFACT uploaded to Nexus successfully"
                     '''
                 }
             }
         }
-
         stage('Build Docker Image') {
             steps {
                 sh "docker build -t ${DOCKER_IMAGE} ."
             }
         }
-
         stage('Push Docker Image') {
             steps {
                 withDockerRegistry([credentialsId: "${DOCKER_CREDENTIALS}", url: 'https://index.docker.io/v1/']) {
@@ -98,20 +89,18 @@ pipeline {
                 }
             }
         }
-
-       stage('K8s Deployment') {
-         steps {
-            
+        stage('Run Docker Container') {
+            steps {
                 sh '''
-                aws sts get-caller-identity
-                aws eks update-kubeconfig --region ap-south-1 --name cluster1
-                kubectl get nodes
-                kubectl apply -f deployment.yaml
-                kubectl apply -f service.yaml
+                # Stop and remove existing container if already running
+                docker stop devops-html-app || true
+                docker rm devops-html-app || true
+
+                # Run new container
+                docker run -itd  --name devopscont25 -p 8025:80 akramsyed8046/devops-html-app:latest
+                echo "Container is running at http://<your-server-ip>:8025"
                 '''
-               }
-          }
-
-       }
- }    
-
+            }
+        }
+    }
+}
