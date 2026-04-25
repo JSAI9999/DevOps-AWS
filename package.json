@@ -5,7 +5,7 @@
   "scripts": {
     "build": "zip -r devops-html-app.zip src/"
   },
-  "author": "Akram",
+  "author": "shivaprabha",
   "license": "MIT",
   "dependencies": {}
 }
