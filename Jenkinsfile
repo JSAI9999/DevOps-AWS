@@ -83,10 +83,18 @@ pipeline {
             }
         }
         stage('Push Docker Image') {
-            steps {
-                withDockerRegistry([credentialsId: "${DOCKER_CREDENTIALS}", url: 'https://index.docker.io/v1/']) {
-                    sh "docker push ${DOCKER_IMAGE}"
-                }
+    steps {
+        withCredentials([usernamePassword(
+            credentialsId: "${DOCKER_CREDENTIALS}",
+            usernameVariable: 'DOCKER_USER',
+            passwordVariable: 'DOCKER_PASS'
+        )]) {
+            sh '''
+            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+            docker push shivadocker2997/devops-html-app:latest
+            docker logout
+            '''
+           }
             }
         }
         stage('Run Docker Container') {
