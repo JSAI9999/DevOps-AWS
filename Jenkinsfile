@@ -126,7 +126,7 @@ pipeline {
             steps {
                 sh """
                 export KUBECONFIG=${KUBECONFIG_PATH}
-                kubectl apply -f deployment.yml
+                kubectl apply -f deployment.yaml
                 kubectl rollout status deployment deploytes
                 """
             }
