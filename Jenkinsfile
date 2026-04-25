@@ -42,6 +42,21 @@ pipeline {
                 '''
             }
         }
+        stage('Test') {
+            steps {
+                sh '''
+                if npm run | grep -q "test"; then
+                    npm test
+                else
+                    echo "No test script found, skipping"
+                fi
+                '''
+            }
+            post {
+                always { echo "Test stage completed" }
+                failure { echo "Tests failed! Check the logs above." }
+            }
+        }
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv("${SONARQUBE_ENV}") {
