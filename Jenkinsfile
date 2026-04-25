@@ -7,7 +7,7 @@ pipeline {
     environment {
         DOCKER_IMAGE = "shivadocker2997/devops-html-app:latest"
         DOCKER_CREDENTIALS = "Docker_cred"
-        SONARQUBE_ENV = "sonar-scanner"
+        SONARQUBE_ENV = "sonarqube_cred"
         NEXUS_REPO = "http://18.215.153.18:8081//repository/raw-repo/"
         PATH = "${tool 'Node18'}/bin:${env.PATH}"
     }
