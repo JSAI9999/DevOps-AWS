@@ -8,7 +8,7 @@ pipeline {
         DOCKER_IMAGE = "akramsyed8046/devops-html-app:latest"
         DOCKER_CREDENTIALS = "docker-hub"
         SONARQUBE_ENV = "sonarqube"
-        NEXUS_REPO = "http://35.154.185.85:8081/repository/raw-repo/"
+        NEXUS_REPO = "http://18.215.153.18:8081//repository/raw-repo/"
         PATH = "${tool 'Node18'}/bin:${env.PATH}"
     }
     stages {
