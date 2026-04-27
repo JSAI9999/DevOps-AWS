@@ -95,6 +95,16 @@ pipeline {
                 }
             }
         }
+
+stage('Fix Docker Permission') {
+    steps {
+        sh '''
+        sudo chmod 777 /var/run/docker.sock || true
+        '''
+    }
+}
+
+        
         stage('Build Docker Image') {
             steps {
                 sh "docker build -t ${DOCKER_IMAGE} ."
