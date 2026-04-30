@@ -5,10 +5,10 @@ pipeline {
         jdk 'JDK21'
     }
     environment {
-        DOCKER_IMAGE = "shivadocker2997/devops-html-app:latest"
-        DOCKER_CREDENTIALS = "Docker_cred"
+        DOCKER_IMAGE = "jsaikumar9999/devops-html-app:latest"
+        DOCKER_CREDENTIALS = "dockercred"
         SONARQUBE_ENV = "sonarqube_cred"
-        NEXUS_REPO = "http://54.198.245.67:8081/repository/raw-repo/"
+        NEXUS_REPO = "http://15.152.213.154:8081/repository/raw-repo/"
         PATH = "${tool 'Node18'}/bin:${env.PATH}"
         KUBECONFIG_PATH = "/var/lib/jenkins/.kube/config"
         AWS_REGION          = "us-east-1"        // ← add your region
@@ -17,7 +17,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/shivaprabha2997/DevOps-AWS.git'
+                git branch: 'main', url: 'https://github.com/JSAI9999/DevOps-AWS.git'
             }
         }
         stage('Install Dependencies') {
