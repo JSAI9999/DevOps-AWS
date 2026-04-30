@@ -2,7 +2,7 @@ pipeline {
     agent any
     tools {
         nodejs 'Node18'
-        jdk 'JDK21'
+        
     }
     environment {
         DOCKER_IMAGE = "jsaikumar9999/devops-html-app:latest"
